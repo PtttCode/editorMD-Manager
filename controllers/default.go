@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -19,39 +20,45 @@ type JsonResponse struct {
 }
 
 type mdInfs struct {
-	authorName string
-	filename   string
-	content    string
+	Authorname string
+	Filename   string
+	Content    string
 }
 
 func (c *DocController) Post() {
+	var params mdInfs
 	jsonRes := &JsonResponse{
-		Code: 200,
+		Code: 0,
 		Msg:  "写入成功",
 	}
-	params := &mdInfs{
-		authorName: c.GetString("authorName"),
-		filename:   c.GetString("filename"),
-		content:    c.GetString("content"),
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &params)
+	if err != nil {
+		jsonRes.Code = -1
+		jsonRes.Msg = "无数据上传"
+		c.Ctx.ResponseWriter.Status = 301
+		fmt.Println(err.Error())
 	}
 
-	filePath := strings.Join([]string{params.filename, time.Now().Format("15:04:05")}, "-")
-	dirPath := strings.Join([]string{"mdfiles", params.authorName, time.Now().Format("2006-01-02")}, "/")
+	filePath := strings.Join([]string{params.Filename, time.Now().Format("15:04:05")}, "-")
+	dirPath := strings.Join([]string{"mdfiles", params.Authorname, time.Now().Format("2006-01-02")}, "/")
 	compPath := dirPath + "/" + filePath
 
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		err := os.MkdirAll(dirPath, 0644)
+		err := os.MkdirAll(dirPath, os.ModePerm)
 		if err != nil {
-			fmt.Println("目录创建错误, 原因：", err)
+			fmt.Println("目录创建错误, 原因：", err.Error())
 		}
 	}
 	f, _ := os.Create(compPath)
-	_, err := f.WriteString(params.content)
+	num, err := f.WriteString(params.Content)
+	fmt.Println(num)
+	fmt.Println(params)
 
 	if err != nil {
-		fmt.Println("文件写入错误, 原因：", err)
-		jsonRes.Code = 500
+		fmt.Println("文件写入错误, 原因：", err.Error())
+		jsonRes.Code = -1
 		jsonRes.Msg = "写入失败"
+		c.Ctx.ResponseWriter.Status = 500
 	}
 
 	c.Data["json"] = jsonRes
