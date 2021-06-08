@@ -8,4 +8,5 @@ import (
 
 func init() {
 	beego.Router("/savemd", &controllers.DocController{})
+	beego.Router("/getLatestDoc", &controllers.DocController{})
 }

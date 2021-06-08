@@ -1,9 +1,52 @@
 <link rel="stylesheet" href="editor.md/css/editormd.min.css" />
 <link rel="stylesheet" href="css/jquery-custom.min.css" />
+
+<!--navbar reference-->
+<link rel="stylesheet" href="css/bootstrap.min.css" />
+<link rel="stylesheet" href="css/navbar.css" />
+<script src="js/bootstrap.min.js"></script>
+<script src="js/jquery.bootstrap-autohidingnavbar.js"></script>
+<script>
+$("div.navbar-fixed-top").autoHidingNavbar();
+</script>
+
+
+
+<div id="layout">
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="container">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">Auto hiding navbar</a>
+          </div>
+          <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+              <li class="active"><a href="#">Home</a></li>
+              <li><a href="#about">About</a></li>
+              <li><a href="#contact">Contact</a></li>
+              <li><select id="editormd-theme-select">
+                <option selected="selected" value="">select Editor.md themes</option>
+            </select></li>
+            <select id="editor-area-theme-select">
+                <option selected="selected" value="">select editor area themes</option>
+            </select>
+            <select id="preview-area-theme-select">
+                <option selected="selected" value="">select preview area themes</option>
+            </select>
+            </ul>
+          </div>
+        </div>
+      </div>
 <div id="editor">
     <!-- Tips: Editor.md can auto append a `<textarea>` tag -->
-    <textarea style="display:none;">### Hello Editor.md !</textarea>
+    <textarea class="mainArea" style="display:none;">### Hello Editor.md !</textarea>
     <div class="alert"></div>
+</div>
 </div>
 <script src="js/jquery-custom.min.js"></script>
 <script src="jquery.min.js"></script>
@@ -13,10 +56,19 @@
         var editor = editormd("editor", {
             emoji: true,
             theme: "dark",
-            // width: "100%",
-            // height: "100%",
-            // markdown: "xxxx",     // dynamic set Markdown text
+            width: "90%",
+            height: "90%",
+            markdown: readLatestFile(),     // dynamic set Markdown text
             path : "editor.md/lib/",  // Autoload modules mode, codemirror, marked... dependents libs path
+            flowchart: true,
+
+            theme        : (localStorage.theme) ? localStorage.theme : "dark",  
+            // Preview container theme, added v1.5.0
+            // You can also custom css class .editormd-preview-theme-xxxx
+            previewTheme : (localStorage.previewTheme) ? localStorage.previewTheme : "dark", 
+            // Added @v1.5.0 & after version is CodeMirror (editor area) theme
+            editorTheme  : (localStorage.editorTheme) ? localStorage.editorTheme : "pastel-on-dark", 
+
             toolbarIcons : function() {
                 // Or return editormd.toolbarModes[name]; // full, simple, mini
                 // Using "||" set icons align right.
@@ -24,46 +76,14 @@
                 "list-ul", "list-ol", "hr", "|", "link", "reference-link", "image", "code", "preformatted-text", "code-block", "table", "datetime", "emoji", "html-entities", 
                 "pagebreak", "|", "goto-line", "watch", "preview", "fullscreen", "clear", "search", "|", "help", "info", "save"]
             },
-            // toolbarIcons : "full", // You can also use editormd.toolbarModes[name] default list, values: full, simple, mini.
             toolbarIconsClass : {
                 save : "fa-save"  // 指定一个FontAawsome的图标类
             },
-            // toolbarIconTexts : {
-            //     testIcon : "Save"  // 如果没有图标，则可以这样直接插入内容，可以是字符串或HTML标签
-            // },
-
             // 自定义工具栏按钮的事件处理
             toolbarHandlers : {
-                /**
-                 * @param {Object}      cm         CodeMirror对象
-                 * @param {Object}      icon       图标按钮jQuery元素对象
-                 * @param {Object}      cursor     CodeMirror的光标对象，可获取光标所在行和位置
-                 * @param {String}      selection  编辑器选中的文本
-                 */
-                save : function(cm, icon, cursor, selection) {
-                    
-                    //var cursor    = cm.getCursor();     //获取当前光标对象，同cursor参数
-                    //var selection = cm.getSelection();  //获取当前选中的文本，同selection参数
-                    
-                    // 替换选中文本，如果没有选中文本，则直接插入
-                    // cm.replaceSelection("[" + selection + ":testIcon]");
-                    
-                    // // 如果当前没有选中的文本，将光标移到要输入的位置
-                    // if(selection === "") {
-                    //     cm.setCursor(cursor.line, cursor.ch + 1);
-                    // }
-                    
-                    // this == 当前editormd实例
-                    $.ajaxSetup({contentType: "application/json; charset=utf-8"});
-                    data = JSON.stringify({'authorName':"pt", 'filename':"golang-knowledge", "content": editor.getMarkdown()})
-                    $.post("/savemd", data, function(data, status){
-                        console.log(data, status, data.Code)
-                        if (data.Code == 0){
-                            successTip(data.Msg, 1500)
-                        }else{
-                            dangerTip(data.Msg, 1500)
-                        }
-                    });
+                save : function() {
+
+                    saveFile(editor)
                 },
             },
             
@@ -72,6 +92,28 @@
                     save : "保存",  // 自定义按钮的提示文本，即title属性
                 }
             },
+            onload : function() {
+                        var saveKeyMap = {
+                            "Ctrl-S": function(cm) {
+                                saveFile(editor)
+                                //return false;
+                            },
+                        };
+                        this.addKeyMap(saveKeyMap);
+                    },
         });
+
+        themeSelect("editormd-theme-select", editormd.themes, "theme", function($this, theme) {
+            editor.setTheme(theme);
+        });
+                
+        themeSelect("editor-area-theme-select", editormd.editorThemes, "editorTheme", function($this, theme) {
+            editor.setCodeMirrorTheme(theme); 
+            // or editor.setEditorTheme(theme);
+        });
+        
+        themeSelect("preview-area-theme-select", editormd.previewThemes, "previewTheme", function($this, theme) {
+            editor.setPreviewTheme(theme);
+        });          
     });
 </script>
